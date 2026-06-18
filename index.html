@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Physical Studio — Recovery Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #0f0f0f;
+    --white: #faf9f7;
+    --surface: #f0ede8;
+    --muted: #6b6b6b;
+    --border: #dddad4;
+    --accent: #4a6fa5;
+    --success: #2d7a4f;
+    --rest: #9b6b3a;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    background: var(--white);
+    color: var(--black);
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  header {
+    background: var(--black);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header svg { width: 24px; height: 24px; }
+
+  header span {
+    color: white;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--white);
+    position: sticky;
+    top: 56px;
+    z-index: 99;
+  }
+
+  nav button {
+    flex: 1;
+    padding: 14px 8px;
+    background: none;
+    border: none;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+
+  nav button.active {
+    color: var(--black);
+    border-bottom-color: var(--black);
+  }
+
+  /* VIEWS */
+  .view { display: none; padding: 24px 20px 100px; }
+  .view.active { display: block; }
+
+  /* TODAY */
+  .date-header { margin-bottom: 24px; }
+  .date-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .date-header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  .goal-bar {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .goal-bar .label { font-size: 12px; color: var(--muted); letter-spacing: 0.05em; }
+  .goal-bar .count { font-size: 22px; font-weight: 700; }
+  .goal-bar .days-left { font-size: 12px; color: var(--muted); text-align: right; }
+
+  .progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--black);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .exercise-card {
+    background: var(--surface);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .exercise-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .exercise-header .ex-info .ex-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .exercise-header .ex-info .ex-name { font-size: 16px; font-weight: 700; }
+
+  .exercise-header .ex-status {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .exercise-header .ex-status.done { background: var(--black); color: white; }
+
+  .exercise-body {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .exercise-body.open { display: block; }
+
+  .set-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .set-row:last-of-type { border-bottom: none; }
+
+  .set-label { font-size: 12px; color: var(--muted); min-width: 40px; font-weight: 500; }
+
+  .set-row input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    color: var(--black);
+    -webkit-appearance: none;
+  }
+
+  .set-row input:focus { outline: none; border-color: var(--black); }
+
+  .set-row .unit { font-size: 12px; color: var(--muted); min-width: 26px; }
+
+  .add-set-btn {
+    margin-top: 10px;
+    padding: 8px 14px;
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    width: 100%;
+    letter-spacing: 0.05em;
+  }
+
+  .mark-done-btn {
+    margin-top: 12px;
+    padding: 12px;
+    width: 100%;
+    background: var(--black);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .mark-done-btn.undo {
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  .day-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .day-actions button {
+    flex: 1;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1.5px solid var(--black);
+  }
+
+  .btn-log-session { background: var(--black); color: white; }
+  .btn-log-rest { background: none; color: var(--black); }
+
+  .btn-log-session:disabled { background: var(--border); border-color: var(--border); color: var(--muted); cursor: default; }
+
+  .today-logged {
+    text-align: center;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 12px;
+    margin-top: 16px;
+  }
+
+  .today-logged .badge {
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  .today-logged p { font-size: 14px; color: var(--muted); }
+  .today-logged strong { color: var(--black); }
+
+  /* CALENDAR */
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 16px;
+  }
+
+  .cal-day-label {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 4px 0 8px;
+  }
+
+  .cal-day {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--surface);
+    color: var(--muted);
+    position: relative;
+  }
+
+  .cal-day.today { border: 2px solid var(--black); color: var(--black); font-weight: 700; }
+  .cal-day.session-done { background: var(--black); color: white; }
+  .cal-day.rest-day { background: var(--rest); color: white; }
+  .cal-day.future { opacity: 0.35; }
+  .cal-day.empty { background: none; }
+
+  .cal-legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 3px;
+  }
+
+  /* PROGRESS */
+  .progress-section { margin-bottom: 32px; }
+  .progress-section h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .progress-section .sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+  .exercise-progress-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+
+  .epc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .epc-name { font-size: 14px; font-weight: 700; }
+  .epc-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; }
+  .epc-best { font-size: 20px; font-weight: 700; }
+  .epc-unit { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  .mini-chart {
+    height: 40px;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .mini-bar {
+    flex: 1;
+    background: var(--black);
+    border-radius: 3px 3px 0 0;
+    min-height: 3px;
+    opacity: 0.15;
+    transition: opacity 0.2s;
+    position: relative;
+  }
+
+  .mini-bar.latest { opacity: 1; }
+  .mini-bar.has-data { opacity: 0.6; }
+
+  .no-data { font-size: 13px; color: var(--muted); font-style: italic; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .stat-card .s-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .stat-card .s-value { font-size: 26px; font-weight: 700; }
+  .stat-card .s-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="20,4 36,12 36,28 20,36 4,28 4,12" stroke="white" stroke-width="2" fill="none"/>
+    <polygon points="20,10 30,15 30,25 20,30 10,25 10,15" stroke="white" stroke-width="1.5" fill="none"/>
+  </svg>
+  <span>Physical Studio</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showView('today')">Today</button>
+  <button onclick="showView('calendar')">Calendar</button>
+  <button onclick="showView('progress')">Progress</button>
+</nav>
+
+<div id="view-today" class="view active"></div>
+<div id="view-calendar" class="view"></div>
+<div id="view-progress" class="view"></div>
+
+<script>
+const EXERCISES = [
+  { id: 'glute_L', label: 'Single Leg Bridge', category: 'Glute Bridge', side: 'Left', type: 'timed' },
+  { id: 'glute_R', label: 'Single Leg Bridge', category: 'Glute Bridge', side: 'Right', type: 'timed' },
+  { id: 'cop_L',   label: 'Copenhagen Plank',  category: 'Copenhagen',   side: 'Left',  type: 'timed' },
+  { id: 'cop_R',   label: 'Copenhagen Plank',  category: 'Copenhagen',   side: 'Right', type: 'timed' },
+  { id: 'lr_both', label: 'Lying Leg Raises',  category: 'Leg Raises',   side: 'Both',  type: 'timed' },
+  { id: 'lr_L',    label: 'Lying Leg Raises',  category: 'Leg Raises',   side: 'Left',  type: 'timed' },
+  { id: 'lr_R',    label: 'Lying Leg Raises',  category: 'Leg Raises',   side: 'Right', type: 'timed' },
+  { id: 'legpress',label: 'Leg Press',         category: 'Leg Press',    side: null,    type: 'weighted' },
+  { id: 'goblet',  label: 'Goblet Squat',      category: 'Goblet Squat', side: null,    type: 'weighted' },
+];
+
+const GOAL_END = new Date('2025-07-25');
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadLog() {
+  try { return JSON.parse(localStorage.getItem('physio_log') || '{}'); } catch { return {}; }
+}
+
+function saveLog(log) {
+  localStorage.setItem('physio_log', JSON.stringify(log));
+}
+
+function loadSets() {
+  try { return JSON.parse(localStorage.getItem('physio_sets') || '{}'); } catch { return {}; }
+}
+
+function saveSets(sets) {
+  localStorage.setItem('physio_sets', JSON.stringify(sets));
+}
+
+function daysLeft() {
+  const now = new Date();
+  const diff = Math.ceil((GOAL_END - now) / (1000 * 60 * 60 * 24));
+  return Math.max(0, diff);
+}
+
+function countSessions() {
+  const log = loadLog();
+  return Object.values(log).filter(v => v === 'session').length;
+}
+
+let openExercise = null;
+
+// ─── TODAY VIEW ────────────────────────────────────────────────────────────────
+
+function renderToday() {
+  const log = loadLog();
+  const sets = loadSets();
+  const date = today();
+  const todayLog = log[date];
+
+  const d = new Date();
+  const dayStr = d.toLocaleDateString('en-NL', { weekday: 'long', day: 'numeric', month: 'long' });
+  const sessions = countSessions();
+  const totalDays = Math.round((GOAL_END - new Date('2025-06-18')) / (1000 * 60 * 60 * 24));
+  const progress = Math.min(100, Math.round((sessions / totalDays) * 100));
+
+  let html = `
+    <div class="date-header">
+      <div class="section-label">Today</div>
+      <h1>${dayStr}</h1>
+      <p>${daysLeft()} days until next physio visit</p>
+    </div>
+    <div class="goal-bar">
+      <div>
+        <div class="label">Sessions logged</div>
+        <div class="count">${sessions}</div>
+      </div>
+      <div class="days-left">
+        <div style="font-size:22px;font-weight:700;">${daysLeft()}</div>
+        <div class="label">days left</div>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+  `;
+
+  if (todayLog) {
+    const emoji = todayLog === 'rest' ? '🛋️' : '✅';
+    const msg = todayLog === 'rest' ? 'Rest day logged. Recovery is part of the process.' : 'Session logged for today. Great work!';
+    html += `<div class="today-logged"><div class="badge">${emoji}</div><p><strong>${todayLog === 'rest' ? 'Rest Day' : 'Session Complete'}</strong><br>${msg}</p></div>`;
+    html += `<div style="margin-top:12px;text-align:center;"><button onclick="clearToday()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;">Undo today's log</button></div>`;
+  } else {
+    // Exercise cards
+    EXERCISES.forEach(ex => {
+      const key = `${date}_${ex.id}`;
+      const exSets = sets[key] || (ex.type === 'timed' ? [{ s: '', d: '' }] : [{ w: '', r: '' }]);
+      const isDone = !!log[key];
+      const isOpen = openExercise === ex.id;
+
+      html += `<div class="exercise-card">
+        <div class="exercise-header" onclick="toggleExercise('${ex.id}')">
+          <div class="ex-info">
+            <div class="ex-label">${ex.side ? ex.side + ' · ' : ''}${ex.type === 'timed' ? 'Timed' : 'Weighted'}</div>
+            <div class="ex-name">${ex.label}</div>
+          </div>
+          <div class="ex-status ${isDone ? 'done' : ''}">${isDone ? '✓' : ''}</div>
+        </div>
+        <div class="exercise-body ${isOpen ? 'open' : ''}">`;
+
+      if (ex.type === 'timed') {
+        exSets.forEach((s, i) => {
+          html += `<div class="set-row">
+            <span class="set-label">Set ${i+1}</span>
+            <input type="number" inputmode="numeric" placeholder="Sets" value="${s.s || ''}" onchange="updateSet('${ex.id}', ${i}, 'timed_s', this.value)" style="max-width:70px">
+            <span class="unit" style="color:var(--muted);font-size:12px;">×</span>
+            <input type="number" inputmode="numeric" placeholder="Sec" value="${s.d || ''}" onchange="updateSet('${ex.id}', ${i}, 'timed_d', this.value)" style="max-width:70px">
+            <span class="unit">sec</span>
+          </div>`;
+        });
+        html += `<button class="add-set-btn" onclick="addSet('${ex.id}', 'timed')">+ Add set</button>`;
+      } else {
+        exSets.forEach((s, i) => {
+          html += `<div class="set-row">
+            <span class="set-label">Log ${i+1}</span>
+            <input type="number" inputmode="decimal" placeholder="Weight" value="${s.w || ''}" onchange="updateSet('${ex.id}', ${i}, 'w', this.value)" style="max-width:80px">
+            <span class="unit">kg</span>
+            <input type="number" inputmode="numeric" placeholder="Reps" value="${s.r || ''}" onchange="updateSet('${ex.id}', ${i}, 'r', this.value)" style="max-width:70px">
+            <span class="unit">reps</span>
+          </div>`;
+        });
+        html += `<button class="add-set-btn" onclick="addSet('${ex.id}', 'weighted')">+ Add entry</button>`;
+      }
+
+      html += `<button class="mark-done-btn ${isDone ? 'undo' : ''}" onclick="markDone('${ex.id}', ${isDone})">${isDone ? 'Undo' : 'Mark done'}</button>`;
+      html += `</div></div>`;
+    });
+
+    const allDone = EXERCISES.every(ex => !!log[`${date}_${ex.id}`]);
+
+    html += `<div class="day-actions">
+      <button class="btn-log-session" ${allDone ? '' : 'disabled'} onclick="logDay('session')">${allDone ? 'Log Session ✓' : 'Complete all exercises'}</button>
+      <button class="btn-log-rest" onclick="logDay('rest')">Rest Day</button>
+    </div>`;
+  }
+
+  document.getElementById('view-today').innerHTML = html;
+}
+
+function toggleExercise(id) {
+  openExercise = openExercise === id ? null : id;
+  renderToday();
+}
+
+function updateSet(exId, idx, field, val) {
+  const sets = loadSets();
+  const date = today();
+  const key = `${date}_${exId}`;
+  const ex = EXERCISES.find(e => e.id === exId);
+  if (!sets[key]) sets[key] = ex.type === 'timed' ? [{ s: '', d: '' }] : [{ w: '', r: '' }];
+  if (field === 'timed_s') sets[key][idx].s = val;
+  else if (field === 'timed_d') sets[key][idx].d = val;
+  else if (field === 'w') sets[key][idx].w = val;
+  else if (field === 'r') sets[key][idx].r = val;
+  saveSets(sets);
+}
+
+function addSet(exId, type) {
+  const sets = loadSets();
+  const date = today();
+  const key = `${date}_${exId}`;
+  if (!sets[key]) sets[key] = [];
+  sets[key].push(type === 'timed' ? { s: '', d: '' } : { w: '', r: '' });
+  saveSets(sets);
+  renderToday();
+}
+
+function markDone(exId, wasDone) {
+  const log = loadLog();
+  const date = today();
+  const key = `${date}_${exId}`;
+  if (wasDone) delete log[key];
+  else log[key] = true;
+  saveLog(log);
+  openExercise = null;
+  renderToday();
+}
+
+function logDay(type) {
+  const log = loadLog();
+  log[today()] = type;
+  saveLog(log);
+  renderToday();
+}
+
+function clearToday() {
+  const log = loadLog();
+  const date = today();
+  delete log[date];
+  EXERCISES.forEach(ex => delete log[`${date}_${ex.id}`]);
+  saveLog(log);
+  renderToday();
+}
+
+// ─── CALENDAR VIEW ─────────────────────────────────────────────────────────────
+
+function renderCalendar() {
+  const log = loadLog();
+  const start = new Date('2025-06-18');
+  const end = new Date('2025-07-25');
+  const now = new Date();
+  const todayStr = today();
+
+  let html = `
+    <div class="date-header">
+      <div class="section-label">Calendar</div>
+      <h1>Jun — Jul 2025</h1>
+      <p>Daily log from first session to next visit</p>
+    </div>
+    <div class="calendar-grid">
+  `;
+
+  const days = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+  days.forEach(d => { html += `<div class="cal-day-label">${d}</div>`; });
+
+  // fill empty slots before start (Mon = 0)
+  const startDow = (start.getDay() + 6) % 7;
+  for (let i = 0; i < startDow; i++) html += `<div class="cal-day empty"></div>`;
+
+  const cur = new Date(start);
+  while (cur <= end) {
+    const ds = cur.toISOString().slice(0, 10);
+    const isFuture = cur > now;
+    const isToday = ds === todayStr;
+    const logVal = log[ds];
+    let cls = 'cal-day';
+    if (isToday) cls += ' today';
+    if (logVal === 'session') cls += ' session-done';
+    if (logVal === 'rest') cls += ' rest-day';
+    if (isFuture && !isToday) cls += ' future';
+    html += `<div class="${cls}">${cur.getDate()}</div>`;
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  html += `</div>
+    <div class="cal-legend" style="margin-top:20px;">
+      <div class="cal-legend-item"><div class="legend-dot" style="background:var(--black)"></div>Session done</div>
+      <div class="cal-legend-item"><div class="legend-dot" style="background:var(--rest)"></div>Rest day</div>
+      <div class="cal-legend-item"><div class="legend-dot" style="background:var(--surface);border:1px solid var(--border)"></div>Missed</div>
+    </div>
+  `;
+
+  document.getElementById('view-calendar').innerHTML = html;
+}
+
+// ─── PROGRESS VIEW ─────────────────────────────────────────────────────────────
+
+function renderProgress() {
+  const log = loadLog();
+  const sets = loadSets();
+  const sessions = countSessions();
+  const rests = Object.values(log).filter(v => v === 'rest').length;
+
+  let html = `
+    <div class="date-header">
+      <div class="section-label">Progress</div>
+      <h1>Your Stats</h1>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="s-label">Sessions</div><div class="s-value">${sessions}</div><div class="s-sub">completed</div></div>
+      <div class="stat-card"><div class="s-label">Rest days</div><div class="s-value">${rests}</div><div class="s-sub">logged</div></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="s-label">Streak</div><div class="s-value">${calcStreak(log)}</div><div class="s-sub">days in a row</div></div>
+      <div class="stat-card"><div class="s-label">Days left</div><div class="s-value">${daysLeft()}</div><div class="s-sub">until physio</div></div>
+    </div>
+    <div class="progress-section">
+      <div class="section-label">Exercise Progress</div>
+      <h2>Best per exercise</h2>
+      <p class="sub">Best set across all sessions</p>
+  `;
+
+  EXERCISES.forEach(ex => {
+    const entries = getExerciseHistory(sets, ex);
+    const best = getBest(entries, ex.type);
+    const barData = getBarData(entries, ex.type);
+
+    html += `<div class="exercise-progress-card">
+      <div class="epc-header">
+        <div>
+          <div class="epc-label">${ex.side ? ex.side + ' · ' : ''}${ex.type === 'timed' ? 'Timed' : 'Weighted'}</div>
+          <div class="epc-name">${ex.label}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="epc-label">Best</div>
+          <div class="epc-best">${best.val}<span class="epc-unit"> ${best.unit}</span></div>
+        </div>
+      </div>`;
+
+    if (barData.length > 0) {
+      const maxVal = Math.max(...barData.map(b => b.val), 1);
+      html += `<div class="mini-chart">`;
+      barData.forEach((b, i) => {
+        const pct = Math.round((b.val / maxVal) * 100);
+        const cls = i === barData.length - 1 ? 'latest' : 'has-data';
+        html += `<div class="mini-bar ${cls}" style="height:${pct}%" title="${b.date}: ${b.val}${best.unit}"></div>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  document.getElementById('view-progress').innerHTML = html;
+}
+
+function getExerciseHistory(sets, ex) {
+  const entries = [];
+  Object.keys(sets).forEach(key => {
+    if (!key.includes(`_${ex.id}`)) return;
+    const date = key.split('_')[0];
+    const data = sets[key];
+    entries.push({ date, data });
+  });
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  return entries;
+}
+
+function getBest(entries, type) {
+  if (!entries.length) return { val: '—', unit: '' };
+  if (type === 'timed') {
+    let best = 0;
+    entries.forEach(e => {
+      e.data.forEach(s => {
+        const v = parseFloat(s.d) || 0;
+        if (v > best) best = v;
+      });
+    });
+    return { val: best || '—', unit: best ? 'sec' : '' };
+  } else {
+    let best = 0;
+    entries.forEach(e => {
+      e.data.forEach(s => {
+        const v = parseFloat(s.w) || 0;
+        if (v > best) best = v;
+      });
+    });
+    return { val: best || '—', unit: best ? 'kg' : '' };
+  }
+}
+
+function getBarData(entries, type) {
+  return entries.map(e => {
+    let best = 0;
+    e.data.forEach(s => {
+      const v = type === 'timed' ? (parseFloat(s.d) || 0) : (parseFloat(s.w) || 0);
+      if (v > best) best = v;
+    });
+    return { date: e.date, val: best };
+  }).filter(b => b.val > 0);
+}
+
+function calcStreak(log) {
+  let streak = 0;
+  const cur = new Date();
+  while (true) {
+    const ds = cur.toISOString().slice(0, 10);
+    if (log[ds] === 'session' || log[ds] === 'rest') {
+      streak++;
+      cur.setDate(cur.getDate() - 1);
+    } else break;
+  }
+  return streak;
+}
+
+// ─── NAVIGATION ────────────────────────────────────────────────────────────────
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  document.querySelectorAll('nav button')[['today','calendar','progress'].indexOf(name)].classList.add('active');
+  if (name === 'today') renderToday();
+  if (name === 'calendar') renderCalendar();
+  if (name === 'progress') renderProgress();
+}
+
+renderToday();
+</script>
+</body>
+</html>
